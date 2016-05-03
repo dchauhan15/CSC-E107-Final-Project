@@ -32,7 +32,7 @@ One of the most simple derivative contracts in existence is the call option. A c
 
 The Black-Scholes formula for the price of a call option on a non-dividend paying stock is defined as follows
 
-![**The Black-Scholes Equation**](BlackScholes.PNG)
+![**The Black-Scholes Equation**](https://raw.githubusercontent.com/dchauhan15/CSC-E107-Final-Project/master/BlackScholes.PNG)
 
 where:
 
@@ -41,8 +41,8 @@ where:
 **K** is the strike price of the call option. This is the price at which the buyer can purchase the underlying (alternatively, the price at which the seller of the option must sell the underlying asset to the buyer).   
 **(T - t)** is the time to maturity. At maturity of the contract, or expiry, the contract becomes worthless if the buyer decides not to exercise.    
 **r** is the risk free rate (an annual rate, expressed in terms of continuous compounding).   
-\sigma is the implied volatility of the underlying asset.    
-N(\cdot) is the cumulative distribution function of the standard normal distribution.       
+**$\sigma$** is the implied volatility of the underlying asset.    
+**N($\cdot$)** is the cumulative distribution function of the standard normal distribution.       
 
 
 **1.5 Mathematical Definition of Realized Volatility**   
@@ -71,8 +71,10 @@ As a starting point, we bind the data into a format that will be useful later.
 # Data Wrangling            #
 #############################
 library(quantmod)
+library(readr)
+library(RColorBrewer)
 
-AAPLCall <- read.csv("AAPL - CallData.csv")
+AAPLCall <- read_csv("https://raw.githubusercontent.com/dchauhan15/CSC-E107-Final-Project/master/AAPL%20-%20CallData.csv")
 head(AAPLCall)
 
 # Find out how R is recognizing the type
@@ -109,10 +111,15 @@ As ever, it is useful to view the data through a number of different lenses in o
 
 summary(AAPLCallxts)                                       # summary data analysis 
 round(cor(AAPLCallxts), 3)                                 # correlation matrix 
-pairs(~close+imp30+imp60+imp90+imp120,data=AAPLCallxts)    # scatterplot matrix
-plot.zoo(AAPLCallxts)                                      # time series plots
+
+blues <- brewer.pal(8,"Blues")                             # Choose Color Palette 
+pairs(~close+imp30+imp60+imp90+imp120,data=AAPLCallxts, col=blues)    # scatterplot matrix
+colorful <- brewer.pal(9,"Set1")                             # Choose Color Palette 
+plot.zoo(AAPLCallxts, col=colorful)                                      # time series plots
 par(mfrow=c(3,2))                                          # visual look for outliers
-for(i in 1:5) qqnorm(AAPLCallxts[,i], main=colnames(AAPLCallxts)[i])
+
+purples <- brewer.pal(9,"Purples")
+for(i in 1:5) qqnorm(AAPLCallxts[,i], main=colnames(AAPLCallxts)[i], col=purples)
 
 # We have put "close" into the role of our response variable and attempt to model (predict) it from the other variables. Already we see some interesting relationships. close appears to be moderately to strongly related to "imp30" (negatively),  "imp60" (negatively),"imp90" (negatively),"imp120" (negatively). This can also be observed from the correlation matrix.
 
@@ -132,8 +139,9 @@ sd_prices
 par(mfrow = c(1, 1))
   
 # Plot the histogram along with a legend
-hist(prices, breaks = 100, prob=T, cex.main = 0.9)
-abline(v = mean_prices, lwd = 2)
+oranges <- brewer.pal(8,"Oranges")
+hist(prices, breaks = 100, prob=T, cex.main = 0.9, col=oranges)
+abline(v = mean_prices, lwd = 3, col="Blue")
 legend("topright", cex = 0.8, border = NULL, bty = "n",
   paste("mean=", mean_prices, "; sd=", sd_prices))
 ```
@@ -144,7 +152,7 @@ Here we declare some user-defined functions that will come in handy later in the
 #############################
 # Function  Price           #
 #############################
-plot_4_ranges_prices <- function(data, start_date, end_date, title) {
+plot_4_ranges_prices <- function(data, start_date, end_date, title, colorName) {
 
   # Set the plot window to be 2 rows and 2 columns
   par(mfrow = c(2, 2))
@@ -160,7 +168,7 @@ plot_4_ranges_prices <- function(data, start_date, end_date, title) {
 
     # Plot the histogram along with a legend
     hist_title <- paste(title, range)
-    hist(time_series, breaks = 100, prob=TRUE,
+    hist(time_series, breaks = 100, prob=TRUE, col=colorName,
      xlab = "", main = hist_title, cex.main = 0.8)
     legend("topright", cex = 0.7, bty = 'n',
      paste("mean=", mean_data, "; sd=", sd_data))
@@ -173,7 +181,7 @@ plot_4_ranges_prices <- function(data, start_date, end_date, title) {
 #############################
 # Function  Log             #
 #############################
-plot_4_ranges_logs <- function(data, start_date, end_date, title) {
+plot_4_ranges_logs <- function(data, start_date, end_date, title, colorName1) {
 
   # Set the plot window to be 2 rows and 2 columns
   par(mfrow = c(2, 2))
@@ -190,7 +198,7 @@ plot_4_ranges_logs <- function(data, start_date, end_date, title) {
 
     # Plot the histogram along with a legend
     hist_title <- paste(title, range)
-    hist(time_series, breaks = 100, prob=TRUE,
+    hist(time_series, breaks = 100, prob=TRUE, col=colorName1,
      xlab = "", main = hist_title, cex.main = 0.8)
     legend("topright", cex = 0.7, bty = 'n',
      paste("mean=", mean_data, "; sd=", sd_data))
@@ -209,7 +217,9 @@ begin_dates <- c("2005-01-03", "2007-10-25",  "2010-08-20", "2013-06-17")
 end_dates   <- c("2007-10-24", "2010-08-19",  "2013-06-16", "2016-04-08")
 
 # Create Price plots
-plot_4_ranges_prices(prices, begin_dates,  end_dates, "AAPL prices for:")
+paired <- brewer.pal(12,"Paired")
+
+plot_4_ranges_prices(prices, begin_dates,  end_dates, "AAPL prices for:",paired)
 ```
 
 
@@ -224,7 +234,9 @@ returns <- diff(log(prices))
 
 # Create Log Return plots
 # Use the same function as before to plot returns rather than prices.
-plot_4_ranges_logs(returns, begin_dates, end_dates, "AAPL log prices for:")
+greens <- brewer.pal(12,"Greens")
+
+plot_4_ranges_logs(returns, begin_dates, end_dates, "AAPL log prices for:",greens)
 # If these where normal the data would be within the red, 
 # Close enough for analysis purposes and much better to model then the prices.
 
@@ -303,7 +315,7 @@ As such, we can see that our refined model is relatively powerful in terms of pr
 
 # Set window 2 by 2
 par(mfrow=c(2,2))                    # visualize four graphs at once
-plot(model3)
+plot(model3, col=colorful)
 par(mfrow=c(1,1))
 ```
 
