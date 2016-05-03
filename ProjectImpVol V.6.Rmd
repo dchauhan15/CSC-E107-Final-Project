@@ -1,0 +1,386 @@
+---
+title: "Project ImpVol"
+author: "The Vol Troopers"
+date: "April 11, 2016"
+output: html_document
+---
+
+
+
+# 1. Introduction and Motivations
+
+**1.1 Overview of the financial derivatives market**   
+Derivatives are financial contracts whose value depends upon the value of one or more underlying assets. The underlying assets themselves can come from a wide range of asset classes, including equities, bonds, currencies, commodities and credit. Some institutions are even developing capabilities in the pricing and trading of weather derivatives.  Some of the more common derivatives include forwards, futures, options, swaps, and variations of these (such as synthetic collateralized debt obligations and credit default swaps). 
+
+At present, it is estimated that the notional value of outstanding derivative contracts exceeds $1.2 quadrillion across the globe, which is in excess of 10 times the size of global GDP.
+
+**1.2 What are the common uses for derivatives?**   
+Derivatives can be used for a number of purposes, including:   
+1.  Hedging (insuring existing asset holdings against adverse price movements)   
+2.  Increasing leverage (increasing exposure to price movements for speculation)   
+3.  Accessing illiquid or difficult-to-trade assets or markets
+
+**1.3 Overview of Implied Volatility**   
+Modern option pricing theory is underpinned by the work of Fisher Black and Myron Scholes in their 1973 paper, "The Pricing of Options and Corporate Liabilities". In this paper, Black and Scholes derived a partial differential equation (widely known as the Black-Scholes equation, that estimates the price of an option over time. 
+
+The key point to note about the Black-Scholes equation is that it has only one parameter that cannot be directly observed in the market: the average future volatility of the underlying asset. However, traders and practitioners can extract this implied parameter from observed prices for liquidly-traded contracts. That is, the implied volatility of an option contract is that value of the volatility of the underlying instrument which, when input into an option pricing model (such as Black-Scholes) will return a theoretical value equal to the current market price of the option. In fact, the prices of many derivative contracts are expressed in terms of this implied volatility parameter. Commonly referred to simply as "vol", the implied volatility generally has a bid and an ask, and is commonly used to calibrate pricing models and the marking of open positions to market at the conclusion of the trading day. 
+
+The implied volatitlity of a particular option contract, or index broader measures of implied volatility (such as the CBOE Volatility Index, or VIX), are closely watched by market participants. Implied volatilities can provide clues to the expectations of traders and hedgers as to the likely future volatility of an underlying asset. Said differently, the implied volatility can provide clues as to the distribution of underlying asset prices at the time that the derivative contract concludes, or expires. 
+
+**1.4 Black-Scholes Formula for a Call Option**   
+One of the most simple derivative contracts in existence is the call option. A call option is a financial contract between two parties, the buyer and the seller. The buyer of the call option has the right, but not the obligation, to buy an agreed quantity of a particular underlying from the seller of the option at a certain time (the expiration date, T) for a certain price (the strike price, K). The seller (or "writer") is obligated to sell the underlying to the buyer, if indeed the buyer exercises their option to do so. The buyer pays a fee (called a premium) for this right.
+
+The Black-Scholes formula for the price of a call option on a non-dividend paying stock is defined as follows
+
+![**The Black-Scholes Equation**](BlackScholes.PNG)
+
+where:
+
+**C(S, t)** is the price of a European call option on the underlying asset. This is the amount that the buyer pays the seller for the contract at inception.    
+**S(t)** is the spot price of the underlying asset.   
+**K** is the strike price of the call option. This is the price at which the buyer can purchase the underlying (alternatively, the price at which the seller of the option must sell the underlying asset to the buyer).   
+**(T - t)** is the time to maturity. At maturity of the contract, or expiry, the contract becomes worthless if the buyer decides not to exercise.    
+**r** is the risk free rate (an annual rate, expressed in terms of continuous compounding).   
+\sigma is the implied volatility of the underlying asset.    
+N(\cdot) is the cumulative distribution function of the standard normal distribution.       
+
+
+**1.5 Mathematical Definition of Realized Volatility**   
+Another parameter that is commonly observed in the financial markets is an asset's realized volatility. Mathematically, the realized volatility of an asset is defined as the daily standard deviation of the logarithmic returns of an underlying asset over a defined horizon. There is an assumed mean of zero, no degrees of freedom, and a constant 252-day annualization factor (regardless of the actual number of trading days within the year). 
+
+**1.6 Tying it all together!**   
+If a trader expects the future realized volatility over the same horizon to be greater than the most recent realized volatility, then he or she will price derivatives on the underlying asset using a larger value for the volatility parameter. Specifically, they will specify a larger value for the implied volatility of the derivative. 
+
+The aggregation of this activity across the broader market provides clues as to the expectation of the log returns of an asset over the chosen horizon. That is, it is possible that implied volatilities can be used to predict the movement of stock prices over the same horizon. 
+
+In this project, the intention is to examine power of implied option volatility in predicting short-term movements in the underlying stock. Specifically, four different volatilities will be used as predictors:
+(a) The implied volatility for the next 30 trading days
+(b) The implied volatility for the next 60 trading days
+(c) The implied volatility for the next 90 trading days
+(d) The implied volatility for the next 120 trading days
+
+Note here that the implied volatilities so not correspond to any one traded contract. Rather, they represent an interpolated average of the implied volatilities of surrounding contracts (both in terms of strike and maturity). As such, we are working from fixed points (in terms of maturity and strike) on the volatility surface, facilitating the comparison of volatility from day-to-day.
+
+
+# 2. Investigation and R-code
+
+**2.1 Data Wrangling**    
+As a starting point, we bind the data into a format that will be useful later. 
+```{r}
+#############################
+# Data Wrangling            #
+#############################
+library(quantmod)
+
+AAPLCall <- read.csv("AAPL - CallData.csv")
+head(AAPLCall)
+
+# Find out how R is recognizing the type
+class(AAPLCall$date) # factor
+class(AAPLCall$close) # numeric
+class(AAPLCall$imp30) #numeric
+class(AAPLCall$imp60) #numeric
+class(AAPLCall$imp90) #numeric
+class(AAPLCall$imp120) #numeric
+
+# Convert date column to Date type
+AAPLCall$date <- as.Date(as.character(AAPLCall$date),format= "%m/%d/%Y")
+head(AAPLCall)
+
+# date column to Date type
+class(AAPLCall$date) # date
+class(AAPLCall$close) # numeric
+class(AAPLCall$imp30) #numeric
+class(AAPLCall$imp60) #numeric
+class(AAPLCall$imp90) #numeric
+class(AAPLCall$imp120) #numeric
+
+# Create XTS
+AAPLCallxts <- xts(x = AAPLCall[,2:6], order.by = AAPLCall$date)
+```
+
+**2.2 Examination of the Data**   
+As ever, it is useful to view the data through a number of different lenses in order to get a feel for the data set (and to perhaps get a clue as to the types of relationships that may exist between different variables)
+```{r}
+#############################
+# Examination of the Data   #
+#############################
+# A straightforward summary of the data. Then look for interrelationships between these variables, we look at a correlation matrix, a scatterplot matrix and time series plots to visualize the data.
+
+summary(AAPLCallxts)                                       # summary data analysis 
+round(cor(AAPLCallxts), 3)                                 # correlation matrix 
+pairs(~close+imp30+imp60+imp90+imp120,data=AAPLCallxts)    # scatterplot matrix
+plot.zoo(AAPLCallxts)                                      # time series plots
+par(mfrow=c(3,2))                                          # visual look for outliers
+for(i in 1:5) qqnorm(AAPLCallxts[,i], main=colnames(AAPLCallxts)[i])
+
+# We have put "close" into the role of our response variable and attempt to model (predict) it from the other variables. Already we see some interesting relationships. close appears to be moderately to strongly related to "imp30" (negatively),  "imp60" (negatively),"imp90" (negatively),"imp120" (negatively). This can also be observed from the correlation matrix.
+
+#############################
+# Stock price distributions #
+#############################
+# Extract prices and compute statistics
+prices <- AAPLCallxts$close
+# View
+# View(prices)
+mean_prices <- round(mean(prices), 2)
+mean_prices
+sd_prices <- round(sd(prices), 2)
+sd_prices
+
+# Reset the plot window
+par(mfrow = c(1, 1))
+  
+# Plot the histogram along with a legend
+hist(prices, breaks = 100, prob=T, cex.main = 0.9)
+abline(v = mean_prices, lwd = 2)
+legend("topright", cex = 0.8, border = NULL, bty = "n",
+  paste("mean=", mean_prices, "; sd=", sd_prices))
+```
+
+**2.3 Function definitions**    
+Here we declare some user-defined functions that will come in handy later in the project.
+```{r}
+#############################
+# Function  Price           #
+#############################
+plot_4_ranges_prices <- function(data, start_date, end_date, title) {
+
+  # Set the plot window to be 2 rows and 2 columns
+  par(mfrow = c(2, 2))
+  for(i in 1:4) {
+    # Create a string with the appropriate date range
+    range <- paste(start_date[i], "::", end_date[i], sep = "")
+
+    # Create the price vector and necessary statistics
+    time_series <- data[range]
+
+    mean_data <- round(mean(time_series, na.rm = TRUE), 3)
+    sd_data <- round(sd(time_series, na.rm = TRUE), 3)
+
+    # Plot the histogram along with a legend
+    hist_title <- paste(title, range)
+    hist(time_series, breaks = 100, prob=TRUE,
+     xlab = "", main = hist_title, cex.main = 0.8)
+    legend("topright", cex = 0.7, bty = 'n',
+     paste("mean=", mean_data, "; sd=", sd_data))
+  }
+
+  # Reset the plot window
+  par(mfrow = c(1, 1))
+}
+
+#############################
+# Function  Log             #
+#############################
+plot_4_ranges_logs <- function(data, start_date, end_date, title) {
+
+  # Set the plot window to be 2 rows and 2 columns
+  par(mfrow = c(2, 2))
+  for(i in 1:4) {
+    # Create a string with the appropriate date range
+    range <- paste(start_date[i], "::", end_date[i], sep = "")
+
+    # Create the price vector and necessary statistics
+    time_series <- data[range]
+
+    mean_data <- round(mean(time_series, na.rm = TRUE), 3)
+    sd_data <- round(sd(time_series, na.rm = TRUE), 3)
+    x_data <- seq(-5 * sd_data, 5 * sd_data, length = nrow(returns)) # Normal Curve
+
+    # Plot the histogram along with a legend
+    hist_title <- paste(title, range)
+    hist(time_series, breaks = 100, prob=TRUE,
+     xlab = "", main = hist_title, cex.main = 0.8)
+    legend("topright", cex = 0.7, bty = 'n',
+     paste("mean=", mean_data, "; sd=", sd_data))
+    lines(x_data, dnorm(x_data, mean_data, sd_data), col = "red", lwd = 2) # Normal Curve
+  }
+
+  # Reset the plot window
+  par(mfrow = c(1, 1))
+}
+#############################
+# /Functions                #
+#############################
+
+# Define start and end dates of interest
+begin_dates <- c("2005-01-03", "2007-10-25",  "2010-08-20", "2013-06-17")
+end_dates   <- c("2007-10-24", "2010-08-19",  "2013-06-16", "2016-04-08")
+
+# Create Price plots
+plot_4_ranges_prices(prices, begin_dates,  end_dates, "AAPL prices for:")
+```
+
+
+**2.4 Establishing Stationarity of the Data**    
+Before utilizing the functionality embedded within the xts package, we need to assess the stationarity of the data set itself. 
+```{r}
+################
+# Stationarity #
+################
+# Compute log returns
+returns <- diff(log(prices))
+
+# Create Log Return plots
+# Use the same function as before to plot returns rather than prices.
+plot_4_ranges_logs(returns, begin_dates, end_dates, "AAPL log prices for:")
+# If these where normal the data would be within the red, 
+# Close enough for analysis purposes and much better to model then the prices.
+
+# Create a new dataframe for prediction
+AAPLCallxtsreturns <- diff(log(AAPLCallxts))
+# Create lag in predictors
+AAPLCallxtsreturnslag <- lag(AAPLCallxtsreturns[,2:5])
+# Remove columns
+AAPLCallxtsreturns <- subset(AAPLCallxtsreturns, select = -c(imp30, imp60, imp90, imp120) )
+# Merge back together
+AAPLCallxtsreturns <- cbind(AAPLCallxtsreturns, AAPLCallxtsreturnslag)
+View(AAPLCallxtsreturns)
+```
+
+**2.5 Development of an Initial Model**
+We commence the analysis with a simple linear additive model of all the predictors:
+```{r}
+###############################
+# Model the Data - Full Model #
+###############################
+
+# We begin by throwing all the predictors into a linear additive model.
+names(AAPLCallxtsreturns)                            # for handy reference
+# [1] "close"  "imp30"  "imp60"  "imp90"  "imp120"    
+
+# model1 = lm(close ~ imp30 +imp60 + imp90 + imp120, data=AAPLCallxts)
+# This is what we're going to accomplish, but more economically, by
+# simply placing a dot after the tilde, which means "everything else."
+model1 = lm(close ~ ., data=AAPLCallxtsreturns)
+summary(model1)
+summary.aov(model1)
+
+###############################
+# Stepwise Regression         #
+###############################
+step(model1, direction="backward")
+
+### imp90 and imp120 have been removed as they are not significant
+```
+
+**2.6 Refinement of the Initial Model**
+We update the model by removing the predictors that were shown to be insignificant in Section 2.5
+```{r}
+### Update our model
+model2 = update(model1, .~. -imp90)
+summary(model2)
+summary.aov(model2)
+model3 = update(model2, .~. -imp120)
+summary(model3)
+summary.aov(model3)
+
+###################################################
+# Confidence Limits on the Estimated Coefficients #
+###################################################
+confint(model3)
+
+###############################
+# Predictions                 #
+###############################
+# Predictions can be made from a model equation using the predict() function.
+
+predict(model3, list(imp30=0.0873874637, imp60=6.217183e-02)) # Manual Calc
+predict(model3, list(imp30=as.numeric(last(AAPLCallxtsreturns$imp30)), imp60=as.numeric(last(AAPLCallxtsreturns$imp60)))) # Auto Calc
+
+# Result
+# 0.0009060401 percent for next day
+
+predictTomorrow <- last(AAPLCallxts$close) + (last(AAPLCallxts$close) * predict(model3, list(imp30=as.numeric(last(AAPLCallxtsreturns$imp30)), imp60=as.numeric(last(AAPLCallxtsreturns$imp60)))))
+coredata(predictTomorrow)
+# Predicted close for 4/11/2016 108.7585
+# Actual    close for 4/11/2016 109.04
+```
+
+As such, we can see that our refined model is relatively powerful in terms of predicting the next days stock price. 
+```{r}
+
+# Set window 2 by 2
+par(mfrow=c(2,2))                    # visualize four graphs at once
+plot(model3)
+par(mfrow=c(1,1))
+```
+
+**2.7 Summary of Predictions from the Model**
+Here we produce some summary statistics of the predictive power of the model that has been developed in the preceeding sections:
+```{r}
+###############################
+# Predictions from a model    #
+###############################
+# Coefficients
+coef(model3)
+
+(prediction = c(1, 0.0873874637, 6.217183e-02) * coef(model3)) # Manual
+
+(prediction = c(1, last(AAPLCallxtsreturns$imp30), last(AAPLCallxtsreturns$imp60)) * coef(model3)) # Auto
+# Note: putting the whole statement in parentheses not only stores the values but also prints them to the Console.
+# Now we have the contribution of each variable to the prediction. It remains but to sum them.
+sum(prediction)
+
+# How accurate is it?
+predict(model3, list(imp30=0.0873874637, imp60=6.217183e-02), interval = "conf") # Manual
+predict(model3, list(imp30=0.0873874637, imp60=6.217183e-02), interval = "pred") # Manual
+
+
+predict(model3, list(imp30=as.numeric(last(AAPLCallxtsreturns$imp30)), imp60=as.numeric(last(AAPLCallxtsreturns$imp60))), interval = "conf") # Auto
+predict(model3, list(imp30=as.numeric(last(AAPLCallxtsreturns$imp30)), imp60=as.numeric(last(AAPLCallxtsreturns$imp60))), interval = "pred") # Auto
+
+# All fits
+head(fitted(model3))
+last(fitted(model3))
+
+# Added 4/25/16 
+# All predictions
+predictTomorrowAll <- AAPLCallxts$close + AAPLCallxts$close * predict(model3, list(imp30=as.numeric(last(AAPLCallxtsreturns$imp30)), imp60=as.numeric(last(AAPLCallxtsreturns$imp60))))
+# predictTomorrowAll 
+
+# Lag the predictions to line them up with the days they were predicted for
+predictTomorrowAllLag <- Lag(predictTomorrowAll)
+
+library(dplyr)
+predictTommorrowWithCloses <- merge.xts(AAPLCallxts, predictTomorrowAllLag)
+
+# Remove columns
+predictTommorrowWithCloses <- subset( predictTommorrowWithCloses, select = -c(imp30, imp60, imp90, imp120 ) )
+# Rename column
+names(predictTommorrowWithCloses)[2] <- "predicted"
+
+# Add differences and percent diffent columns
+predictTommorrowWithCloses$diff <- predictTommorrowWithCloses$predicted - predictTommorrowWithCloses$close 
+predictTommorrowWithCloses$diffperc <- predictTommorrowWithCloses$diff / predictTommorrowWithCloses$close *100
+
+# Summary statistics of the predictions
+summary(predictTommorrowWithCloses)
+
+# Counts above and below 5%
+above <- sum(predictTommorrowWithCloses$diffperc > 5 , na.rm=T)
+below <- sum(predictTommorrowWithCloses$diffperc < -5 , na.rm=T)
+
+# Calculate the perentages above and below the 5% predictions
+percBeyond5 <- (above + below) / length(predictTommorrowWithCloses$diffperc)
+
+cat((1-percBeyond5) * 100,  "% of the predictions are within 5% of the closing prices")
+
+```
+
+
+# 3. Conclusions
+
+**3.1 Overview of the Results Obtained**   
+In completing this study, we can conclude that implied volatilities are a powerful predictor of short term movements in the underlying stock. Specifically, movements in the shorter-term volatilities provide the most predictive power. This in itself is not surprising, given that longer-dated volatilities to be driven by activities that relate to strategic investment stocks (which can be driven by news expectations for the sector that the stock is in and the prospects for the broader economy). Shorter-term volatilities, however, tend to be driven by trading dynamics. These manifest themselves in the form of name-specific factors such as earnings outlooks, broader short-term market sentiment and any rush to hedge positions that can be driven by short-term market sell-offs. 
+
+
+**3.2 Possible Areas for Further Investigation**
+There are several areas in which this investigation could be extended. These include (but are not limited to):
+
+(a) Investigating the way in which intra-day movements in implied volatilites can translate into movements in the underlying stock.
+
+(b) Looking at the predictive power of out-of-the-money and in-the-money implied volatilities. This study only looked at at-the-money options (100% of strike), but many market participants look at the difference between the 90% strike options and the at-the-money implied vols (defined as "skew") as a measure of market sentiment. Specifically, if the difference between the implied volatilities of the 90% and 100% strike options increases, it generally means that market participants are more fearful for the prospects for that stock (and so are buying protection in the form of out-of-the-money put options)
+
+(c) Since 96.5% of our predictions are within 5% of the closing price, we could investigate the other 3.5% for possible reasons why such a big discrepancy from the prediction. i.e. earnings report, economic calendar reports and note those so that future trading would not occur on such dates and eliminate the big swings from our predictions. Thus feeling even more secure with the predictions.
