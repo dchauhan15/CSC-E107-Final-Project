@@ -561,19 +561,7 @@ predictTomorrowAll &lt;- AAPLCallxts$close + AAPLCallxts$close * predict(model3,
 # Lag the predictions to line them up with the days they were predicted for
 predictTomorrowAllLag &lt;- Lag(predictTomorrowAll)
 
-library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: 'dplyr'</code></pre>
-<pre><code>## The following objects are masked from 'package:xts':
-## 
-##     first, last</code></pre>
-<pre><code>## The following objects are masked from 'package:stats':
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from 'package:base':
-## 
-##     intersect, setdiff, setequal, union</code></pre>
-<pre class="r"><code>predictTommorrowWithCloses &lt;- merge.xts(AAPLCallxts, predictTomorrowAllLag)
+predictTommorrowWithCloses &lt;- merge.xts(AAPLCallxts, predictTomorrowAllLag)
 
 # Remove columns
 predictTommorrowWithCloses &lt;- subset( predictTommorrowWithCloses, select = -c(imp30, imp60, imp90, imp120 ) )

@@ -2,6 +2,8 @@
 title: "Project ImpVol"
 Team Name: "The Vol Troopers"
 Team Members: "Jasun Rambert, John Black, Dharmesh Chauhan"
+Data: "The Implied Volatility data is not freely available to download from the free finance sites such asfinance.yahoo.com etc. The data used for the project was exported through the trading software platform and is provided as CSV file on the githib repo"
+Packages Needed:"The three packages should be installed for the RMD to compile: quantmod, readr, RColorBrewer"
 date: "April 11, 2016"
 output: html_document
 ---
@@ -356,7 +358,6 @@ predictTomorrowAll <- AAPLCallxts$close + AAPLCallxts$close * predict(model3, li
 # Lag the predictions to line them up with the days they were predicted for
 predictTomorrowAllLag <- Lag(predictTomorrowAll)
 
-library(dplyr)
 predictTommorrowWithCloses <- merge.xts(AAPLCallxts, predictTomorrowAllLag)
 
 # Remove columns
