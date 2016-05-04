@@ -1,6 +1,7 @@
 ---
 title: "Project ImpVol"
-author: "The Vol Troopers"
+Team Name: "The Vol Troopers"
+Team Members: "Jasun Rambert, John Black, Dharmesh Chauhan"
 date: "April 11, 2016"
 output: html_document
 ---
